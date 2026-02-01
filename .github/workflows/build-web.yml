@@ -1,9 +1,7 @@
-name: Build Web Version
+name: Build Web App
 
 on:
   push:
-    branches: [ main, master ]
-  pull_request:
     branches: [ main, master ]
   workflow_dispatch:
 
@@ -18,7 +16,7 @@ jobs:
     - name: Setup Flutter
       uses: subosito/flutter-action@v2
       with:
-        flutter-version: '3.24.5'
+        flutter-version: '3.16.0'
         channel: 'stable'
         
     - name: Get dependencies

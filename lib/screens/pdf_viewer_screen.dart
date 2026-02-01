@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'dart:io';
+import 'package:flutter/foundation.dart';
 import '../services/bookmark_service.dart';
 import '../services/reading_progress_service.dart';
 import '../models/bookmark.dart';
@@ -22,33 +22,11 @@ class PDFViewerScreen extends StatefulWidget {
 class _PDFViewerScreenState extends State<PDFViewerScreen> {
   final BookmarkService _bookmarkService = BookmarkService();
   final ReadingProgressService _progressService = ReadingProgressService();
-  
-  bool _fileExists = false;
-  String _fileSize = '';
 
   @override
   void initState() {
     super.initState();
-    _checkFile();
     _loadProgress();
-  }
-
-  void _checkFile() {
-    final file = File(widget.filePath);
-    setState(() {
-      _fileExists = file.existsSync();
-      if (_fileExists) {
-        final bytes = file.lengthSync();
-        _fileSize = _formatFileSize(bytes);
-      }
-    });
-  }
-
-  String _formatFileSize(int bytes) {
-    if (bytes < 1024) return '$bytes B';
-    if (bytes < 1024 * 1024) return '${(bytes / 1024).toStringAsFixed(1)} KB';
-    if (bytes < 1024 * 1024 * 1024) return '${(bytes / (1024 * 1024)).toStringAsFixed(1)} MB';
-    return '${(bytes / (1024 * 1024 * 1024)).toStringAsFixed(1)} GB';
   }
 
   Future<void> _loadProgress() async {
@@ -74,110 +52,147 @@ class _PDFViewerScreenState extends State<PDFViewerScreen> {
         ],
       ),
       body: Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(
-              Icons.picture_as_pdf,
-              size: 120,
-              color: Colors.red[400],
-            ),
-            const SizedBox(height: 24),
-            Text(
-              widget.fileName,
-              style: Theme.of(context).textTheme.headlineSmall,
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: 16),
-            if (_fileExists) ...[
-              Text(
-                '파일 크기: $_fileSize',
-                style: Theme.of(context).textTheme.bodyMedium,
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(
+                Icons.picture_as_pdf,
+                size: 120,
+                color: Colors.red[400],
               ),
-              const SizedBox(height: 16),
+              const SizedBox(height: 24),
               Text(
-                '파일 경로: ${widget.filePath}',
-                style: Theme.of(context).textTheme.bodySmall,
+                widget.fileName,
+                style: Theme.of(context).textTheme.headlineSmall,
                 textAlign: TextAlign.center,
               ),
               const SizedBox(height: 32),
               Card(
-                margin: const EdgeInsets.all(16),
                 child: Padding(
-                  padding: const EdgeInsets.all(16),
+                  padding: const EdgeInsets.all(24),
                   child: Column(
                     children: [
-                      const Icon(Icons.info_outline, size: 48, color: Colors.blue),
+                      const Icon(Icons.web, size: 64, color: Colors.blue),
+                      const SizedBox(height: 16),
+                      Text(
+                        '웹 PDF 리더',
+                        style: Theme.of(context).textTheme.headlineSmall,
+                      ),
                       const SizedBox(height: 16),
                       const Text(
-                        'PDF 뷰어 기능',
-                        style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-                      ),
-                      const SizedBox(height: 8),
-                      const Text(
-                        '현재 버전에서는 PDF 파일 정보만 표시됩니다.\n'
-                        '실제 PDF 내용을 보려면 기기의 기본 PDF 앱을 사용하세요.',
+                        '이 앱은 웹 버전으로 제작되었습니다.\n'
+                        'PDF 파일을 관리하고 북마크를 추가할 수 있습니다.',
                         textAlign: TextAlign.center,
                       ),
-                      const SizedBox(height: 16),
-                      ElevatedButton.icon(
-                        onPressed: _openWithSystemApp,
-                        icon: const Icon(Icons.open_in_new),
-                        label: const Text('시스템 앱으로 열기'),
-                      ),
+                      const SizedBox(height: 24),
+                      if (kIsWeb) ...[
+                        const Text(
+                          '웹 브라우저에서 실행 중입니다.',
+                          style: TextStyle(
+                            color: Colors.green,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        const SizedBox(height: 16),
+                        ElevatedButton.icon(
+                          onPressed: _showWebInstructions,
+                          icon: const Icon(Icons.help_outline),
+                          label: const Text('사용 방법'),
+                        ),
+                      ] else ...[
+                        ElevatedButton.icon(
+                          onPressed: _addBookmark,
+                          icon: const Icon(Icons.bookmark_add),
+                          label: const Text('북마크 추가'),
+                        ),
+                      ],
                     ],
                   ),
                 ),
               ),
-            ] else ...[
-              const Text(
-                '파일을 찾을 수 없습니다',
-                style: TextStyle(color: Colors.red),
-              ),
+              const SizedBox(height: 24),
+              _buildFeatureList(),
             ],
-          ],
+          ),
         ),
       ),
-      bottomNavigationBar: _buildBottomControls(),
     );
   }
 
-  Widget _buildBottomControls() {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Theme.of(context).primaryColor.withOpacity(0.1),
-        border: Border(
-          top: BorderSide(color: Colors.grey.withOpacity(0.3)),
+  Widget _buildFeatureList() {
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              '주요 기능',
+              style: Theme.of(context).textTheme.titleLarge,
+            ),
+            const SizedBox(height: 16),
+            _buildFeatureItem(Icons.folder_open, 'PDF 파일 관리'),
+            _buildFeatureItem(Icons.bookmark, '북마크 시스템'),
+            _buildFeatureItem(Icons.history, '읽기 진행률 추적'),
+            _buildFeatureItem(Icons.library_books, '라이브러리 관리'),
+            _buildFeatureItem(Icons.analytics, '읽기 통계'),
+            _buildFeatureItem(Icons.settings, '개인화 설정'),
+          ],
         ),
       ),
+    );
+  }
+
+  Widget _buildFeatureItem(IconData icon, String text) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 8),
       child: Row(
         children: [
-          Expanded(
-            child: Text(
-              '북마크 및 진행률 관리',
-              style: Theme.of(context).textTheme.bodyMedium,
-            ),
-          ),
-          ElevatedButton.icon(
-            onPressed: _addBookmark,
-            icon: const Icon(Icons.bookmark_add, size: 16),
-            label: const Text('북마크'),
-            style: ElevatedButton.styleFrom(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-            ),
-          ),
+          Icon(icon, size: 20, color: Theme.of(context).primaryColor),
+          const SizedBox(width: 12),
+          Text(text),
         ],
       ),
     );
   }
 
-  void _openWithSystemApp() {
-    // 시스템 기본 앱으로 PDF 열기
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('파일 관리자에서 PDF 파일을 찾아 기본 앱으로 여세요'),
-        duration: Duration(seconds: 3),
+  void _showWebInstructions() {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('웹 앱 사용 방법'),
+        content: const SingleChildScrollView(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text('📱 스마트폰에서 사용하기:'),
+              SizedBox(height: 8),
+              Text('1. 브라우저 메뉴 → "홈 화면에 추가"'),
+              Text('2. 홈 화면 아이콘으로 앱처럼 사용'),
+              SizedBox(height: 16),
+              Text('💾 파일 관리:'),
+              SizedBox(height: 8),
+              Text('1. "PDF 열기" 버튼으로 파일 선택'),
+              Text('2. 북마크 및 진행률 자동 저장'),
+              Text('3. 라이브러리에서 파일 관리'),
+              SizedBox(height: 16),
+              Text('🔖 북마크:'),
+              SizedBox(height: 8),
+              Text('1. 중요한 파일 북마크 추가'),
+              Text('2. 북마크 탭에서 빠른 접근'),
+              Text('3. 메모 추가 가능'),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('확인'),
+          ),
+        ],
       ),
     );
   }
