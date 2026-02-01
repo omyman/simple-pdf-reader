@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:advance_pdf_viewer/advance_pdf_viewer.dart';
+import 'package:pdfjs_viewer/pdfjs_viewer.dart';
 import '../services/bookmark_service.dart';
 import '../services/reading_progress_service.dart';
 import '../models/bookmark.dart';
@@ -23,36 +23,13 @@ class _PDFViewerScreenState extends State<PDFViewerScreen> {
   final BookmarkService _bookmarkService = BookmarkService();
   final ReadingProgressService _progressService = ReadingProgressService();
 
-  PDFDocument? _document;
-  bool _isLoading = true;
   int _currentPage = 1;
   int _totalPages = 0;
 
   @override
   void initState() {
     super.initState();
-    _loadDocument();
-  }
-
-  Future<void> _loadDocument() async {
-    try {
-      final document = await PDFDocument.fromFile(widget.filePath);
-      setState(() {
-        _document = document;
-        _totalPages = document.count;
-        _isLoading = false;
-      });
-      _loadProgress();
-    } catch (e) {
-      setState(() {
-        _isLoading = false;
-      });
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('PDF 로드 실패: $e')),
-        );
-      }
-    }
+    _loadProgress();
   }
 
   Future<void> _loadProgress() async {
@@ -79,30 +56,21 @@ class _PDFViewerScreenState extends State<PDFViewerScreen> {
           ),
         ],
       ),
-      body: _isLoading
-          ? const Center(child: CircularProgressIndicator())
-          : _document == null
-              ? const Center(child: Text('PDF를 로드할 수 없습니다'))
-              : Column(
-                  children: [
-                    Expanded(
-                      child: PDFViewer(
-                        document: _document!,
-                        zoomSteps: 3,
-                        minScale: 1.0,
-                        maxScale: 5.0,
-                        panLimit: 1.0,
-                        onPageChanged: (page) {
-                          setState(() {
-                            _currentPage = page + 1;
-                          });
-                          _saveProgress();
-                        },
-                      ),
-                    ),
-                    _buildBottomControls(),
-                  ],
-                ),
+      body: Column(
+        children: [
+          Expanded(
+            child: PdfjsViewer.file(
+              widget.filePath,
+              viewerOptions: const PdfjsViewerOptions(
+                initialPage: 1,
+                enableTextSelection: true,
+                enableAnnotations: false,
+              ),
+            ),
+          ),
+          _buildBottomControls(),
+        ],
+      ),
     );
   }
 
@@ -118,14 +86,18 @@ class _PDFViewerScreenState extends State<PDFViewerScreen> {
       child: Row(
         children: [
           Text(
-            '페이지 $_currentPage / $_totalPages',
+            widget.fileName,
             style: Theme.of(context).textTheme.bodyMedium,
+            overflow: TextOverflow.ellipsis,
           ),
           const Spacer(),
-          LinearProgressIndicator(
-            value: _totalPages > 0 ? _currentPage / _totalPages : 0,
-            backgroundColor: Colors.grey.withOpacity(0.3),
-            minHeight: 4,
+          ElevatedButton.icon(
+            onPressed: _addBookmark,
+            icon: const Icon(Icons.bookmark_add, size: 16),
+            label: const Text('북마크'),
+            style: ElevatedButton.styleFrom(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            ),
           ),
         ],
       ),

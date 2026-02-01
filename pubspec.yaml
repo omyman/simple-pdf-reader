@@ -10,8 +10,8 @@ dependencies:
   flutter:
     sdk: flutter
   
-  # 가장 기본적인 PDF 뷰어
-  advance_pdf_viewer: ^2.0.1
+  # 웹용 PDF 뷰어 (가장 안정적)
+  pdfjs_viewer: ^1.0.8
   
   # File operations
   file_picker: ^6.1.1
