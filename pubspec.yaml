@@ -10,8 +10,8 @@ dependencies:
   flutter:
     sdk: flutter
   
-  # PDF rendering - 더 안정적인 라이브러리로 교체
-  flutter_pdfview: ^1.3.2
+  # 가장 기본적인 PDF 뷰어
+  advance_pdf_viewer: ^2.0.1
   
   # File operations
   file_picker: ^6.1.1

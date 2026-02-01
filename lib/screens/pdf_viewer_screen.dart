@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_pdfview/flutter_pdfview.dart';
+import 'package:advance_pdf_viewer/advance_pdf_viewer.dart';
 import '../services/bookmark_service.dart';
 import '../services/reading_progress_service.dart';
 import '../models/bookmark.dart';
@@ -23,16 +23,36 @@ class _PDFViewerScreenState extends State<PDFViewerScreen> {
   final BookmarkService _bookmarkService = BookmarkService();
   final ReadingProgressService _progressService = ReadingProgressService();
 
-  PDFViewController? _pdfController;
+  PDFDocument? _document;
+  bool _isLoading = true;
   int _currentPage = 1;
   int _totalPages = 0;
-  bool _isReady = false;
-  bool _showAppBar = true;
 
   @override
   void initState() {
     super.initState();
-    _loadProgress();
+    _loadDocument();
+  }
+
+  Future<void> _loadDocument() async {
+    try {
+      final document = await PDFDocument.fromFile(widget.filePath);
+      setState(() {
+        _document = document;
+        _totalPages = document.count;
+        _isLoading = false;
+      });
+      _loadProgress();
+    } catch (e) {
+      setState(() {
+        _isLoading = false;
+      });
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('PDF 로드 실패: $e')),
+        );
+      }
+    }
   }
 
   Future<void> _loadProgress() async {
@@ -47,133 +67,69 @@ class _PDFViewerScreenState extends State<PDFViewerScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: _showAppBar ? AppBar(
+      appBar: AppBar(
         title: Text(
           widget.fileName,
           overflow: TextOverflow.ellipsis,
         ),
         actions: [
           IconButton(
-            icon: const Icon(Icons.bookmark_border),
+            icon: const Icon(Icons.bookmark_add),
             onPressed: _addBookmark,
           ),
         ],
-      ) : null,
-      body: GestureDetector(
-        onTap: () {
-          setState(() {
-            _showAppBar = !_showAppBar;
-          });
-        },
-        child: Stack(
-          children: [
-            PDFView(
-              filePath: widget.filePath,
-              enableSwipe: true,
-              swipeHorizontal: false,
-              autoSpacing: false,
-              pageFling: true,
-              pageSnap: true,
-              defaultPage: _currentPage - 1,
-              fitPolicy: FitPolicy.BOTH,
-              preventLinkNavigation: false,
-              onRender: (pages) {
-                setState(() {
-                  _totalPages = pages ?? 0;
-                  _isReady = true;
-                });
-              },
-              onError: (error) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(content: Text('PDF 로드 오류: $error')),
-                );
-              },
-              onPageError: (page, error) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(content: Text('페이지 $page 오류: $error')),
-                );
-              },
-              onViewCreated: (PDFViewController pdfViewController) {
-                _pdfController = pdfViewController;
-              },
-              onPageChanged: (int? page, int? total) {
-                if (page != null) {
-                  setState(() {
-                    _currentPage = page + 1;
-                  });
-                  _saveProgress();
-                }
-              },
-            ),
-            if (_isReady) _buildBottomControls(),
-          ],
-        ),
       ),
+      body: _isLoading
+          ? const Center(child: CircularProgressIndicator())
+          : _document == null
+              ? const Center(child: Text('PDF를 로드할 수 없습니다'))
+              : Column(
+                  children: [
+                    Expanded(
+                      child: PDFViewer(
+                        document: _document!,
+                        zoomSteps: 3,
+                        minScale: 1.0,
+                        maxScale: 5.0,
+                        panLimit: 1.0,
+                        onPageChanged: (page) {
+                          setState(() {
+                            _currentPage = page + 1;
+                          });
+                          _saveProgress();
+                        },
+                      ),
+                    ),
+                    _buildBottomControls(),
+                  ],
+                ),
     );
   }
 
   Widget _buildBottomControls() {
-    return Positioned(
-      bottom: 0,
-      left: 0,
-      right: 0,
-      child: AnimatedOpacity(
-        opacity: _showAppBar ? 1.0 : 0.0,
-        duration: const Duration(milliseconds: 300),
-        child: Container(
-          padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(
-            color: Colors.black.withOpacity(0.7),
-            borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
-          ),
-          child: Row(
-            children: [
-              IconButton(
-                icon: const Icon(Icons.chevron_left, color: Colors.white),
-                onPressed: _currentPage > 1 ? _previousPage : null,
-              ),
-              Expanded(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text(
-                      '$_currentPage / $_totalPages',
-                      style: const TextStyle(color: Colors.white),
-                    ),
-                    const SizedBox(height: 4),
-                    LinearProgressIndicator(
-                      value: _totalPages > 0 ? _currentPage / _totalPages : 0,
-                      backgroundColor: Colors.white.withOpacity(0.3),
-                      valueColor: const AlwaysStoppedAnimation<Color>(Colors.blue),
-                    ),
-                  ],
-                ),
-              ),
-              IconButton(
-                icon: const Icon(Icons.chevron_right, color: Colors.white),
-                onPressed: _currentPage < _totalPages ? _nextPage : null,
-              ),
-              IconButton(
-                icon: const Icon(Icons.bookmark_add, color: Colors.white),
-                onPressed: _addBookmark,
-              ),
-            ],
-          ),
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Theme.of(context).primaryColor.withOpacity(0.1),
+        border: Border(
+          top: BorderSide(color: Colors.grey.withOpacity(0.3)),
         ),
       ),
+      child: Row(
+        children: [
+          Text(
+            '페이지 $_currentPage / $_totalPages',
+            style: Theme.of(context).textTheme.bodyMedium,
+          ),
+          const Spacer(),
+          LinearProgressIndicator(
+            value: _totalPages > 0 ? _currentPage / _totalPages : 0,
+            backgroundColor: Colors.grey.withOpacity(0.3),
+            minHeight: 4,
+          ),
+        ],
+      ),
     );
-  }
-
-  void _previousPage() {
-    if (_currentPage > 1) {
-      _pdfController?.setPage(_currentPage - 2);
-    }
-  }
-
-  void _nextPage() {
-    if (_currentPage < _totalPages) {
-      _pdfController?.setPage(_currentPage);
-    }
   }
 
   Future<void> _addBookmark() async {
