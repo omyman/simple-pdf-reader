@@ -10,10 +10,7 @@ dependencies:
   flutter:
     sdk: flutter
   
-  # 웹용 PDF 뷰어 (가장 안정적)
-  pdfjs_viewer: ^1.0.8
-  
-  # File operations
+  # File operations만 사용 (PDF 라이브러리 제거)
   file_picker: ^6.1.1
   path_provider: ^2.1.1
   
